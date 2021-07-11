@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="devtool page for delaying/blocking network requests"/>
+    <template id="template-id">
+        <div class="url_line" style="vertical-align: middle; justify-content: center; align-items: center;">
+            <input type="checkbox"/>
+            <input type="text" value='5' style="display: inline-flex; height: 13px;padding-top: 1px; width: 40px; margin-left: 13px; margin-right: 16px;}">
+            <input type="checkbox"/>
+            <span style="padding-left: 16px">http://localhost:23434/123/?test=queryStr</span>
+            <button style="float: right;border: transparent;background-color: transparent; cursor: pointer">
+                <img style="width: 12px;height: 12px;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAAY0lEQVQ4jc2SQQrAIAwEh76rYOgzfWHtK7xEKNSYiAe7151d2BD4kzKQApwo+1ECilMiyogFnMANXIZXDM8Fw+FeYDrc1PYONx+zrVEtTVg64gh0S9wnUe+xmOyE3yXdV96jCmTlHDI4zeQmAAAAAElFTkSuQmCC"/>
+            </button>
+        </div>
+    </template>
+    <style>
+        body{
+            background-color: white;
+        }
+        span{
+            margin-right: 8px;
+        }
+        input[type='checkbox']{
+            height: 16px;
+            width: 16px;
+            margin-right: 13px;
+            margin-left: 12px;
+            display: inline-flex;
+            vertical-align:middle;
+        }
+        .m{
+            margin: 20px 0 50px 0;;
+        }
+        textarea{
+            width: 500px;
+            height: 40px;
+            margin-bottom: 10px;
+        }
+        .mb{
+            margin-bottom: 20px;
+        }
+        .url_line {
+            margin-bottom: 5px;
+        }
+    </style>
+    <title>Request Delayer</title>
+</head>
+<body>
+
+<div id="root">
+    <h2 class="m">Devtool for delaying/blocking network requests</h2>
+    <div class="mb">
+        <textarea id="input"></textarea>
+        <br/>
+        <button id="btn">Add url</button>
+    </div>
+    <div>
+        <span>delay</span>
+        <span>delay(sec)</span>
+        <span>block</span>
+    </div>
+    <hr/>
+    <div id="url-list"></div>
+
+</div>
+<script src="./index.js"></script>
+</body>
+</html>
