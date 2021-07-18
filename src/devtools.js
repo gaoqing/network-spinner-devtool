@@ -1,5 +1,5 @@
-const isChrome = !!window.chrome && (!!window.chrome.webstore || !!window.chrome.runtime);
-const browser = isChrome? window.chrome: window.browser;
+const isFirefox = typeof InstallTrigger !== 'undefined';
+const browser = isFirefox && window.browser || window.chrome;
 
 browser.devtools.panels.create(
     "NetworkSpinner",
@@ -7,3 +7,9 @@ browser.devtools.panels.create(
     "index.html"
 );
 
+function sendMessageToBackground(message) {
+    browser.runtime.sendMessage({
+        tabId: browser.devtools.inspectedWindow.tabId,
+        message
+    });
+}

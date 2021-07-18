@@ -1,162 +1,139 @@
+const instanceName = "NetworkSpinner_" + Date.now() + Math.random();
+const isFirefox = typeof InstallTrigger !== 'undefined';
+const browser = isFirefox && window.browser || window.chrome;
+browser.runtime.connect({name: instanceName});
+const log = console.log;
+
 const input = document.getElementById('input')
-const urlList = document.getElementById('url-list')
+const urlListElement = document.getElementById('url-list')
 const template = document.getElementById("template-id");
 const addUrlBtn = document.getElementById('btn');
+const header = document.getElementById('header');
 
-addUrlBtn.addEventListener('click', addUrlListener)
+const listingUrls = new Set();
+addUrlBtn.addEventListener('click', addUrlListeners)
 
-function addUrlListener(e) {
-    let value = input.value;
-    if(!validateUrl(value)){
-        return;
+function addUrlListeners() {
+    const validUrls = new Set();
+    const invalidUrls = new Set();
+    const duplicatedUrls = new Set();
+
+    const urls = input.value && input.value.trim().split('\n')
+        .map(url => url.replace(/^\s+|\s+$/g, ''))
+        .filter(url => url.length > 0);
+    urls.forEach(url => {
+        const enrichedUrl = validateUrl(url);
+        enrichedUrl && validUrls.add(enrichedUrl) || invalidUrls.add(url);
+    });
+
+    validUrls.forEach(url => {
+        header.classList.contains('hide') && header.classList.remove('hide');
+        if (listingUrls.has(url)) {
+            duplicatedUrls.add(url);
+        } else {
+            listingUrls.add(url);
+            singleUrlListener(url);
+        }
+    })
+
+    clearAllWarnings();
+    input.value = '';
+    if (duplicatedUrls.size > 0) {
+        showDuplicateUrlWarning(duplicatedUrls);
+        input.value += Array.from(duplicatedUrls).join("\n");
     }
-    input.value='';
+    if (invalidUrls.size > 0) {
+        showInvalidUrlWarning(invalidUrls);
+        duplicatedUrls.size > 0 && (input.value += "\n");
+        input.value += Array.from(invalidUrls).join("\n");
+    }
+}
 
+function singleUrlListener(url) {
     const item = document.importNode(template.content, true);
     const div = item.querySelector('div');
-
     const urlSpan = item.querySelector('span');
-    urlSpan.textContent = value;
     const deleteBtn = item.querySelector('button');
+    urlSpan.textContent = url;
 
     const inputs = item.querySelectorAll('input');
     const [delayBox, delayTimeInput, blockBox] = inputs;
-    const [addBlockListener, removeBlockListener ] = createOnBeforeRequestListeners(value, -1);
-    let [addDelayListener, removeDelayListener ] = createOnBeforeRequestListeners(value, delayTimeInput.value);
+    const [addBlockListener, removeBlockListener] = createOnBeforeRequestListeners(url, -1);
+    let [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
 
     deleteBtn.addEventListener('click', e => {
+        clearAllWarnings();
         removeBlockListener();
         removeDelayListener();
-        urlList.removeChild(div);
+        listingUrls.delete(url);
+        urlListElement.removeChild(div);
+        log("Remove all settings for url: " + url)
     })
 
     blockBox.addEventListener('click', e => {
-        clearError();
-        if(e.target.checked){
+        clearAllWarnings();
+        if (e.target.checked) {
             addBlockListener();
             removeDelayListener();
             delayBox.checked = false;
             delayTimeInput.disabled = true;
-        }else{
-            removeBlockListener();
-        }
-    })
-
-    delayBox.addEventListener('click', e => {
-        clearError();
-        if(e.target.checked){
-            addDelayListener();
+            log("Block set for url: " + url)
+        } else {
             removeBlockListener();
             delayTimeInput.disabled = false;
-            blockBox.checked = false;
-        }else{
-            removeDelayListener();
+            log("Un-block set for url: " + url)
         }
-    })
-
-    delayTimeInput.addEventListener('change', e => {
-        removeBlockListener();
-        removeDelayListener();
-        [addDelayListener, removeDelayListener ] = createOnBeforeRequestListeners(value, delayTimeInput.value);
-        addDelayListener();
-    })
-
-    urlList.insertAdjacentElement('afterbegin', div);
-}
-
-function validateUrl(value){
-    const urlValue = value;
-    const existing = document.getElementById('error-msg');
-    if(existing){
-        document.body.removeChild(existing);
-    }
-    const wildcardProtocol = '*://'
-    const protocolPlaceHolder = 'http://'
-    const isWildcardProtocol = value.indexOf(wildcardProtocol) === 0;
-    if(isWildcardProtocol){
-        value = value.replace(wildcardProtocol, protocolPlaceHolder)
-    }
-
-    try{
-        // https//test.*.cn/pathname invalid, if need to use wildcard in hostname, should do from starting of hostname(not in middle or end)
-        // and then follow by . or / only
-        const url = new URL(value);
-        const {hostname, search} = url;
-        const starWildcard = '%2A';
-        const starWildcardLen = starWildcard.length;
-
-        if(hostname.lastIndexOf(starWildcard) > 0){
-            showError(urlValue);
-            return null;
-        }
-        if(hostname.lastIndexOf(starWildcard) === 0){
-            // need to follow by a . or /
-            if(hostname.length > starWildcardLen && hostname[starWildcardLen] !== '.'){
-                showError(urlValue);
-                return null;
-            }
-        }
-        // if host is wildcard but not follow by . and also no search parameter, then help to append ending / anyway
-        if(search === '' && value.charAt(value.length-1) !== '/'){
-            value =  value + '/';
-        }
-    }catch (e){
-        showError(urlValue);
-        return null;
-    }
-
-    return isWildcardProtocol? value.replace(protocolPlaceHolder, wildcardProtocol): value;
-}
-
-function clearError(){
-    const existingErr = document.getElementById('error-msg');
-    if(existingErr){
-        document.body.removeChild(existingErr);
-    }
-}
-
-function showError(urlValue){
-    const msg= document.createElement('p')
-    msg.setAttribute('id', 'error-msg');
-    const errorMsg = `[${urlValue}] is not a valid URL pattern, check 
-            <a target="_blank" href="https://developer.chrome.com/docs/extensions/mv3/match_patterns/">
-            https://developer.chrome.com/docs/extensions/mv3/match_patterns/
-            </a>`;
-    msg.innerHTML = errorMsg;
-    document.body.appendChild(msg);
-    console.error(errorMsg);
-    messageToContentPage(errorMsg);
-}
-
-function messageToContentPage(msg){
-    // through the background script
-    const scriptToAttach = `console.log('${msg}');`;
-    browser.runtime.sendMessage({
-        tabId: browser.devtools.inspectedWindow.tabId,
-        script: scriptToAttach
     });
+
+    delayBox.addEventListener('click', e => {
+        clearAllWarnings();
+        if (e.target.checked) {
+            addDelayListener();
+            removeBlockListener();
+            blockBox.checked = false;
+            delayTimeInput.disabled = false;
+            log(`Delay set ${delayTimeInput.value}sec for url: ${url}`)
+        } else {
+            removeDelayListener();
+            log("Remove delay set for url: " + url)
+        }
+    })
+
+    const delayTimeInputHandler = e => {
+        if (delayBox.checked) {
+            removeBlockListener();
+            removeDelayListener();
+            [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
+            addDelayListener();
+            log(`Delay time change to ${delayTimeInput.value}sec for url: ${url}`)
+        }
+    }
+    delayTimeInput.addEventListener('click', e => e.target.select());
+    delayTimeInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
+
+    let lastDelayTimeValue = delayTimeInput.value;
+    delayTimeInput.addEventListener('blur', () => {
+        if (lastDelayTimeValue !== delayTimeInput.value) {
+            lastDelayTimeValue = delayTimeInput.value;
+            delayTimeInputHandler();
+        }
+    })
+
+    urlListElement.insertAdjacentElement('afterbegin', div);
 }
 
 /*
 * @filterUrl need to match pattern https://developer.chrome.com/docs/extensions/mv3/match_patterns/
 * @delaySec, if delaySec < 0 to block request, delaySec = 0 fire without delay, delaySec > 0 to apply delaySec in sec
 */
-function createOnBeforeRequestListeners(filterUrl, delaySec){
-    const isFirefox = typeof InstallTrigger !== 'undefined';
-    if(isFirefox){
-        return firefoxOnBeforeRequestListener(filterUrl, delaySec);
-    }
-    return chromeOnBeforeRequestListener(filterUrl, delaySec);
-
-}
-
-function firefoxOnBeforeRequestListener(filterUrl, delaySec){
-    const listenerId = Date.now() + "_" + Math.random();
+function createOnBeforeRequestListeners(filterUrl, delaySec) {
+    const listenerPairId = "OnBeforeRequestListener_" + Date.now() + Math.random();
     const add = () => {
         browser.runtime.sendMessage({
             tabId: browser.devtools.inspectedWindow.tabId,
             webRequestOnBeforeRequestListenerAction: 'ADD',
-            listenerId,
+            name: instanceName,
+            listenerPairId,
             filterUrl,
             delaySec
         });
@@ -166,7 +143,8 @@ function firefoxOnBeforeRequestListener(filterUrl, delaySec){
         browser.runtime.sendMessage({
             tabId: browser.devtools.inspectedWindow.tabId,
             webRequestOnBeforeRequestListenerAction: 'REMOVE',
-            listenerId,
+            name: instanceName,
+            listenerPairId,
             filterUrl,
             delaySec
         });
@@ -175,31 +153,68 @@ function firefoxOnBeforeRequestListener(filterUrl, delaySec){
     return [add, remove];
 }
 
-function chromeOnBeforeRequestListener(filterUrl, delaySec){
-    const delaySecNum = Number(delaySec);
-    const listener =  function(details) {
-        if(isNaN(delaySecNum) || delaySecNum === 0){
-            console.log("To issue request with no delay to url: " + details.url);
-            return {};
+function validateUrl(value) {
+    // check hostname part, help to append trailing /* if there is no
+    const parts = /^(http|https|\*)(:\/\/)([-a-zA-Z0-9*@:%._+#=]+)(\/*)([-a-zA-Z0-9*()@:;%_+.~#?&/=]*)$/.exec(value);
+    if (parts && parts.length === 6) {
+        const hostname = parts[3];
+        // if '*' is in the host, it can only be the first character
+        if (hostname.lastIndexOf('*') > 0) {
+            return false;
+        } else if (hostname.lastIndexOf('*') === 0) {
+            // if * not followed by '.'
+            if (hostname.length > 1 && hostname[1] !== '.') {
+                return false;
+            }
         }
-        if(delaySecNum < 0 ){
-            console.log("To block request to url: " + details.url);
-            return {cancel: true};
+        if (parts[5] === '') {
+            // no path and/or search element, help to append trading /*
+            return parts[1] + parts[2] + parts[3] + "/*";
+        } else if (parts[4] === '/' && parts[5] !== '') {
+            return value;
         }
-        if(delaySecNum > 0) {
-            console.log(`To delay request ${delaySecNum}s to url: ${details.url}`);
-            // spinning, that is blocking, cannot do non-blocking in chrome
-            const start = Date.now();
-            while (Date.now() - start < delaySecNum * 1000){}
-            return {};
-        }
-    };
+    }
 
-    const browser = window.chrome;
-    const add = () =>  browser.webRequest.onBeforeRequest.addListener(listener, {urls: [filterUrl]}, ["blocking"]);
-    const remove = () => browser.webRequest.onBeforeRequest.removeListener(listener, {urls: [filterUrl]}, ["blocking"]);
-
-    return [add, remove];
+    return false;
 }
 
+function showInvalidUrlWarning(urlSet) {
+    const urlValues = Array.from(urlSet).join(', ');
+    const warnMsg = `[${urlValues}] not valid url pattern.`;
+    showWarning(warnMsg);
+    const htmlMsg = `Check <a target="_blank" href="https://developer.chrome.com/docs/extensions/mv3/match_patterns/"> https://developer.chrome.com/docs/extensions/mv3/match_patterns/</a>`
+    showWarning(htmlMsg, true);
+    sendMessageToContentPage(`NetworkSpinner: [${urlValues}] not valid url pattern. Check https://developer.chrome.com/docs/extensions/mv3/match_patterns/`);
+}
 
+function showDuplicateUrlWarning(urlSet) {
+    const urlValues = Array.from(urlSet).join(', ');
+    const warnMsg = `[${urlValues}] have already listed.`;
+    showWarning(warnMsg);
+    sendMessageToContentPage(warnMsg);
+}
+
+function clearAllWarnings() {
+    const warnElements = document.querySelectorAll('.warn-msg');
+    if (warnElements.length > 0) {
+        warnElements.forEach(el => document.body.removeChild(el));
+    }
+}
+
+function showWarning(message, isHtml) {
+    const msg = document.createElement('p')
+    msg.classList.add('warn-msg');
+    const contentType = isHtml? 'innerHTML': 'textContent';
+    msg[contentType] = message;
+    document.body.appendChild(msg);
+    console.warn(message);
+}
+
+function sendMessageToContentPage(msg) {
+    // through the background script
+    const scriptToAttach = 'console.error("' + msg + '");';
+    browser.runtime.sendMessage({
+        tabId: browser.devtools.inspectedWindow.tabId,
+        script: scriptToAttach
+    });
+}

@@ -1,54 +1,131 @@
 const isFirefox = typeof InstallTrigger !== 'undefined';
 const browser = isFirefox && window.browser || window.chrome;
+const listenerCallbackStore = {};
+const houseKeepStore = new HouseKeepStore(listenerCallbackStore);
 
 browser.runtime.onMessage.addListener(handleMessage);
 
-const LISTENERS_STORE = {};
+browser.runtime.onConnect.addListener(function (port) {
+    const {name} = port;
+    if (name.indexOf("NetworkSpinner") > -1) {
+        console.log("DevTools window opening: " + name);
+
+        port.onDisconnect.addListener(function (port) {
+            console.log("DevTools window closing: " + name);
+            console.log("Clean up listeners for: " + name);
+            houseKeepStore.cleanNameStore(name);
+        });
+    }
+});
+
+function getListenerCallback(listenerPairId, delaySec) {
+    if (!listenerCallbackStore[listenerPairId]) {
+        listenerCallbackStore[listenerPairId] = isFirefox ? firefoxListenerCallback(delaySec) : chromeListenerCallback(delaySec)
+    }
+    return listenerCallbackStore[listenerPairId];
+}
 
 function handleMessage(request, sender, sendResponse) {
-    if (sender.url !== browser.runtime.getURL("/index.html")) {
+    if ((sender.url !== browser.runtime.getURL("/index.html")) && (sender.url !== browser.runtime.getURL('/devtoolpage.html'))) {
         return;
     }
 
-    if(request.webRequestOnBeforeRequestListenerAction){
-        const {webRequestOnBeforeRequestListenerAction, listenerId, filterUrl, delaySec} = request;
-        if(!LISTENERS_STORE[listenerId]){
-            LISTENERS_STORE[listenerId] = createListenerCallback(delaySec);
-        }
-        const listener = LISTENERS_STORE[listenerId];
+    if (request.webRequestOnBeforeRequestListenerAction) {
+        const {webRequestOnBeforeRequestListenerAction, name, listenerPairId, filterUrl, delaySec} = request;
+        const listener = getListenerCallback(listenerPairId, delaySec);
 
-        if(webRequestOnBeforeRequestListenerAction === 'ADD'){
-            return browser.webRequest.onBeforeRequest.addListener(listener, {urls: [filterUrl]}, ["blocking"]);
+        if (webRequestOnBeforeRequestListenerAction === 'ADD') {
+            browser.webRequest.onBeforeRequest.addListener(listener, {urls: [filterUrl]}, ["blocking"]);
+            const cleanCallback = () => browser.webRequest.onBeforeRequest.removeListener(listener, {urls: [filterUrl]}, ["blocking"]);
+            houseKeepStore.addCleaner(name, listenerPairId, cleanCallback);
+            return;
+        } else if (webRequestOnBeforeRequestListenerAction === 'REMOVE') {
+            houseKeepStore.cleanAndDelete(name, listenerPairId);
+            return;
         }
-        else if(webRequestOnBeforeRequestListenerAction === 'REMOVE'){
-            return browser.webRequest.onBeforeRequest.removeListener(listener, {urls: [filterUrl]}, ["blocking"]);
-        }
-        return;
     }
 
-    if(request.script){
+    if (request.script) {
         // execute script in main content page
-        browser.tabs.executeScript(request.tabId, { code: request.script });
+        return browser.tabs.executeScript(request.tabId, {code: request.script});
     }
 }
 
-function createListenerCallback(delaySec){
-     const delaySecNum = Number(delaySec);
+function firefoxListenerCallback(delaySec) {
+    const delaySecNum = Number(delaySec);
 
-     return function(details) {
-         if(isNaN(delaySecNum) || delaySecNum === 0){
-             console.log("To issue request with no delay to url: " + details.url);
-             return Promise.resolve({});
-         }
-         if(delaySecNum < 0 ){
-             console.log("To block request to url: " + details.url);
-             return Promise.resolve({cancel: true});
-         }
-         if(delaySecNum > 0) {
-             console.log(`To delay request ${delaySecNum}s to url: ${details.url}`);
-             return new Promise(resolve => {
-                 setTimeout(() => resolve({}), delaySecNum * 1000);
-             })
-         }
-     };
+    return function (details) {
+        if (isNaN(delaySecNum) || delaySecNum === 0) {
+            console.log("immediate request to url: " + details.url);
+            return Promise.resolve({});
+        }
+        if (delaySecNum < 0) {
+            console.log("blocking request to url: " + details.url);
+            return Promise.resolve({cancel: true});
+        }
+        if (delaySecNum > 0) {
+            console.log(`delaying request ${delaySecNum}sec to url: ${details.url}`);
+            // non-block in firefox
+            return new Promise(resolve => {
+                setTimeout(() => resolve({}), delaySecNum * 1000);
+            })
+        }
+    };
+}
+
+function chromeListenerCallback(delaySec) {
+    const delaySecNum = Number(delaySec);
+
+    return function (details) {
+        if (isNaN(delaySecNum) || delaySecNum === 0) {
+            console.log("immediate request to url: " + details.url);
+            return {};
+        }
+        if (delaySecNum < 0) {
+            console.log("blocking request to url: " + details.url);
+            return {cancel: true};
+        }
+        if (delaySecNum > 0) {
+            console.log(`delaying request ${delaySecNum}sec to url: ${details.url}`);
+            // spinning, that is blocking, cannot do non-blocking in chrome
+            const start = Date.now();
+            while (Date.now() - start < delaySecNum * 1000) {
+            }
+            return {};
+        }
+    };
+}
+
+function HouseKeepStore(listenerCallbackStore) {
+    this.listenerCallbackStore = listenerCallbackStore;
+    this.store = new Map();
+
+    this.getNameStore = function (name) {
+        if (!this.store.has(name)) {
+            this.store.set(name, new Map());
+        }
+        return this.store.get(name);
+    }
+
+    this.addCleaner = function (name, id, cleanerFn) {
+        this.getNameStore(name).set(id, cleanerFn);
+    }
+
+    this.cleanAndDelete = function (name, id) {
+        const nameStore = this.getNameStore(name);
+        if (nameStore.has(id)) {
+            const cleanerFn = nameStore.get(id);
+            typeof cleanerFn === 'function' && cleanerFn();
+            nameStore.delete(id);
+        }
+    }
+
+    this.cleanNameStore = function (name) {
+        const nameStore = this.getNameStore(name);
+        nameStore.forEach((cleanerFn, id) => {
+            typeof cleanerFn === 'function' && cleanerFn();
+            delete this.listenerCallbackStore[id];
+        });
+        this.store.delete(name);
+    }
 }
