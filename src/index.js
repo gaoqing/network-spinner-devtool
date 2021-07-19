@@ -68,7 +68,7 @@ function singleUrlListener(url) {
         listingUrls.delete(url);
         urlListElement.removeChild(div);
         log("Remove all settings for url: " + url)
-    })
+    });
 
     blockBox.addEventListener('click', e => {
         clearAllWarnings();
@@ -97,15 +97,17 @@ function singleUrlListener(url) {
             removeDelayListener();
             log("Remove delay set for url: " + url)
         }
-    })
+    });
 
     const delayTimeInputHandler = e => {
-        if (delayBox.checked) {
-            removeBlockListener();
+        const isDelayBoxChecked = delayBox.checked;
+        if (isDelayBoxChecked) {
             removeDelayListener();
-            [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
-            addDelayListener();
             log(`Delay time change to ${delayTimeInput.value}sec for url: ${url}`)
+        }
+        [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
+        if(isDelayBoxChecked){
+            addDelayListener();
         }
     }
     delayTimeInput.addEventListener('click', e => e.target.select());
@@ -117,7 +119,7 @@ function singleUrlListener(url) {
             lastDelayTimeValue = delayTimeInput.value;
             delayTimeInputHandler();
         }
-    })
+    });
 
     urlListElement.insertAdjacentElement('afterbegin', div);
 }
