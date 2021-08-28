@@ -6,15 +6,13 @@
     <meta name="theme-color" content="#000000"/>
     <meta name="description" content="devtool page for delaying/blocking network requests"/>
     <template id="template-id">
-        <div class="url_line" style="vertical-align: middle; justify-content: center; align-items: center;">
-            <input type="checkbox" style="cursor: pointer"/>
-            <input type="text" value='5'
-                   style="display: inline-flex; height: 13px;padding-top: 1px; width: 40px; margin-left: 13px; margin-right: 16px;}">
-            <input type="checkbox" style="cursor: pointer"/>
-            <span style="padding-left: 16px">some-url</span>
-            <button style="float: right;border: transparent;background-color: transparent; cursor: pointer">
-                <img style="width: 12px;height: 12px;"
-                     src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAAY0lEQVQ4jc2SQQrAIAwEh76rYOgzfWHtK7xEKNSYiAe7151d2BD4kzKQApwo+1ECilMiyogFnMANXIZXDM8Fw+FeYDrc1PYONx+zrVEtTVg64gh0S9wnUe+xmOyE3yXdV96jCmTlHDI4zeQmAAAAAElFTkSuQmCC"/>
+        <div class="url-line">
+            <input type="checkbox"/>
+            <input type="text" value='5' class="delay-time-input"/>
+            <input type="checkbox"/>
+            <span class="pl16">some-url</span>
+            <button class="transparent fr">
+                <img class="wh12" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAAY0lEQVQ4jc2SQQrAIAwEh76rYOgzfWHtK7xEKNSYiAe7151d2BD4kzKQApwo+1ECilMiyogFnMANXIZXDM8Fw+FeYDrc1PYONx+zrVEtTVg64gh0S9wnUe+xmOyE3yXdV96jCmTlHDI4zeQmAAAAAElFTkSuQmCC"/>
             </button>
         </div>
     </template>
@@ -27,6 +25,9 @@
             height: 48px;
             margin-bottom: 10px;
         }
+        button, a {
+            cursor: pointer;
+        }
         input[type='checkbox'] {
             height: 16px;
             width: 16px;
@@ -34,9 +35,22 @@
             margin-left: 12px;
             display: inline-flex;
             vertical-align: middle;
+            cursor: pointer;
+        }
+        .url-line {
+           vertical-align: middle; justify-content: center; align-items: center;
+        }
+        .delay-time-input {
+            display: inline-flex; height: 13px; padding-top: 1px; width: 40px; margin-left: 13px; margin-right: 16px;
+        }
+        .pl16 {
+            padding-left: 16px;
         }
         span {
             margin-right: 8px;
+        }
+        .fr {
+            float: right;
         }
         .m-header {
             margin: 10px 0 30px 0;
@@ -50,8 +64,14 @@
         .hide{
             display: none;
         }
-        .warn-msg{
+        .warn-msg {
             margin: 10px 0;
+        }
+        .transparent {
+            border: transparent; background-color: transparent;
+        }
+        .wh12 {
+           width: 12px; height: 12px;
         }
     </style>
     <title>Network Spinner</title>
@@ -64,6 +84,9 @@
         <textarea id="input" placeholder="separate each url pattern on a new line"></textarea>
         <br/>
         <button id="btn">Add pattern</button>
+        <a title="pattern info" class="transparent" target="_blank" href="https://developer.chrome.com/docs/extensions/mv3/match_patterns/">
+            <img class="wh12" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAABmJLR0QA/wD/AP+gvaeTAAAD7ElEQVRoge3ay29XRRQH8E/1Z/sjoNCWAkuJT9RU9gQfGy3BBZpoouIOgxseQbfq0ro1aeI/YogYRRCNVUTdWAvoRmuiCTa+KgTNdTFzM7e1r9+98/sVEr7JzUlm5p7HnTlnzpy53MC1hb6MvIbwEHbhPtyBLVgf+//Cz/ge3+AMTmM2ow610cYLOIF/UXT4/IN3sR8DPdYdrMPL+Kmi1GV8gFexDzswiFviMxjb9uE1nIzvlO/P4JjwcXqCvfiuosDnOICNNXhtwos4W+F3EXuyaLoE2ni7IvALPJaR/xi+rPCf0IXZ2SYoXghOewg35xYSeR7BnDTbW3Mx3y5Md4EpPJCL8TIYxXSUeSHq0AgjFYafYXNThh1gUAjRheCT2+oyakvL6RNpP+gl1uNTaZnV8pnSsaeEza5T9ONNIUTPYDy2dYphaVVMdPryXsmx6/rEuP9vgOM1eY1KAWBstS+tk/aJQzUFE2ZhoSEzDfgdlZx/VUvsFWmfaBJicxvSwleRz9GVBreltKPpZrfY0nqjIc89kc+PVsjN9ksRoin6BWNmNHP2KvqkSPrccgPfi4MONBTYTRwUdDy+1IAhIa2+rF4C2CsM4gququh5U2XAw4Jzf4zfeqpaZ5gVNsmWcJDDfEN2RfphD5Wqi5OR7i4bWpXOHZF+nUFQsUR7rqN1qeO9ZUN1Ru6K9EImYd3E+UjvXqzzkvAl6+RVS2HhPpILmyO/XxbrvBI7m8b6KrplyIBUJ8D8pXVdo2rIn5FuWAtFOsRtkf5eNlQNuRRptjNyF7El0l/LhqohZbRaNBJcY7gn0jJ6zTNkKtIHe6ZOfYxG+m3ZUDXkTKSP9Eyd+ng00tOLdQ5KSeOmTAK7EX6HpKSxdPp5MzKL94UY/XQmod3AM8Jed0Ilai3E88KXO5tJaO4Z6cO5yOvZ5QYOCMfIAo9nEJzbkCcinx+s4hriWBx8TvP6bk5DWkLWW+Dwal5oS7XeIzWFrnTBUwflB57WwaVQWa2Yk2J2J8htyE78rWZ1Z0L6AsM1hOfCiJB1FHirDoO2UBYqhDPyWhSxN2Ay6jCpwT3jiJAGlNcKIzm0WyWGhEJIeR3XOJndLk3ttN7kYjsrMs/j9lyMt0rLbE6ovbaWfaMeWkJ0Kh17UkrZs6EtBYBCKCjnun3tE64yyn2idOyu3r2PSdNeVu0PCklnpxjCS1LaUS6lnLfFy6ItLK8ynSmEjPQUXseTuF8I2/3xGRYujZ6KY05JBY8y7Thsjf6AGBCq4seFI8BKG+HC5yreERLARgbk/Klmo1CL3S1ULe8UwvWtsf8PoQ51UQjpHwmzsmQqfgPXM/4DBaQ+gM0EhfQAAAAASUVORK5CYII="/>
+        </a>
     </div>
     <div id="header" class="hide">
         <span>delay</span>
