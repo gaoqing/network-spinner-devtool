@@ -23,6 +23,9 @@ It supports both Firefox and Chrome.
 Choose the test browser based on above non-blocking / blocking feature.
 
 ### Usage
+##### It is listed in Chrome web store, can install from there (https://chrome.google.com/webstore/detail/network-spinner/klhfgmmihbgojnnbhdbnefjmiidlgfld)
+or if want to locally install and try:
+
 * In Firefox: Open the about:debugging page, click "This Firefox" (in newer versions of Firefox), click "Load Temporary Add-on", then select any file in your extension's directory.
 * In Chrome: Open the chrome://extensions page, click load unpacked, and then select the folder in which the manifest.json file exists. 
 * After that, in your website, press F12, and navigate to panel "NetworkSpinner", and add target URLs(support certain [wildcard pattern](https://developer.chrome.com/docs/extensions/mv3/match_patterns/), separate each url on a new line), tick the box to delay(with delay time in second) or block completely.
