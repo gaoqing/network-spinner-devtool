@@ -18,9 +18,11 @@ browser.runtime.onConnect.addListener(function (port) {
     }
 });
 
-function getListenerCallback(listenerPairId, delaySec) {
+function getListenerCallback(listenerPairId, delaySec, isToDelayBeforeSending) {
     if (!listenerCallbackStore[listenerPairId]) {
-        listenerCallbackStore[listenerPairId] = isFirefox ? firefoxListenerCallback(delaySec) : chromeListenerCallback(delaySec)
+        listenerCallbackStore[listenerPairId] = isFirefox ?
+            firefoxListenerCallback(delaySec, isToDelayBeforeSending)
+            : chromeListenerCallback(delaySec, isToDelayBeforeSending)
     }
     return listenerCallbackStore[listenerPairId];
 }
@@ -31,8 +33,8 @@ function handleMessage(request, sender, sendResponse) {
     }
 
     if (request.webRequestOnBeforeRequestListenerAction) {
-        const {webRequestOnBeforeRequestListenerAction, name, listenerPairId, filterUrl, delaySec} = request;
-        const listener = getListenerCallback(listenerPairId, delaySec);
+        const {webRequestOnBeforeRequestListenerAction, name, listenerPairId, filterUrl, delaySec, isToDelayBeforeSending} = request;
+        const listener = getListenerCallback(listenerPairId, delaySec, isToDelayBeforeSending);
 
         if (webRequestOnBeforeRequestListenerAction === 'ADD') {
             browser.webRequest.onBeforeRequest.addListener(listener, {urls: [filterUrl]}, ["blocking"]);
@@ -51,7 +53,7 @@ function handleMessage(request, sender, sendResponse) {
     }
 }
 
-function firefoxListenerCallback(delaySec) {
+function firefoxListenerCallback(delaySec, isToDelayBeforeSending) {
     const delaySecNum = Number(delaySec);
 
     return function (details) {
@@ -66,9 +68,16 @@ function firefoxListenerCallback(delaySec) {
         if (delaySecNum > 0) {
             console.log(`delaying request ${delaySecNum}sec to url: ${details.url}`);
             // non-block in firefox
-            return new Promise(resolve => {
-                setTimeout(() => resolve({}), delaySecNum * 1000);
-            })
+            if(isToDelayBeforeSending){
+                return new Promise(resolve => {
+                    setTimeout(() => resolve({}), delaySecNum * 1000);
+                })
+            } else {
+                // is to delay the response data(if any) before sending back to the browser rendering engine (front page context)
+                // this only supported by firefox
+                filterResponseDataAsDelay(details.requestId, delaySec);
+                return Promise.resolve({});
+            }
         }
     };
 }
@@ -92,8 +101,21 @@ function chromeListenerCallback(delaySec) {
             while (Date.now() - start < delaySecNum * 1000) {
             }
             return {};
+
+           // filterResponseData is not supported by chrome:  https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/filterResponseData
+           // so cannot introduce delay after receiving response data.
         }
     };
+}
+
+function filterResponseDataAsDelay(requestId, delaySec){
+    const filter = browser.webRequest.filterResponseData(requestId);
+    filter.ondata = event => {
+        setTimeout(() => {
+            filter.write(event.data);
+            filter.disconnect();
+        }, delaySec * 1000)
+    }
 }
 
 function HouseKeepStore(listenerCallbackStore) {

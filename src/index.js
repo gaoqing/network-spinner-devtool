@@ -54,12 +54,20 @@ function singleUrlListener(url) {
     const div = item.querySelector('div');
     const urlSpan = item.querySelector('span');
     const deleteBtn = item.querySelector('button');
-    urlSpan.textContent = url;
-
+    const select = item.querySelector('select');
     const inputs = item.querySelectorAll('input');
     const [delayBox, delayTimeInput, blockBox] = inputs;
-    const [addBlockListener, removeBlockListener] = createOnBeforeRequestListeners(url, -1);
-    let [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
+    urlSpan.textContent = url;
+
+    if(isFirefox){
+        select.removeAttribute("disabled");
+    }
+    const isToDelayBeforeSending = () => {
+        return select.value.toLowerCase() === 'before';
+    }
+
+    const [addBlockListener, removeBlockListener] = createOnBeforeRequestListeners(url, -1, isToDelayBeforeSending());
+    let [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value, isToDelayBeforeSending());
 
     deleteBtn.addEventListener('click', e => {
         clearAllWarnings();
@@ -92,34 +100,37 @@ function singleUrlListener(url) {
             removeBlockListener();
             blockBox.checked = false;
             delayTimeInput.disabled = false;
-            log(`Delay set ${delayTimeInput.value}sec for url: ${url}`)
+            log(`Delay set ${delayTimeInput.value}sec for url: ${url}, and isToDelayBeforeSending = ${isToDelayBeforeSending()}`)
         } else {
             removeDelayListener();
             log("Remove delay set for url: " + url)
         }
     });
 
-    const delayTimeInputHandler = e => {
+    const recreateDelayListener = e => {
         const isDelayBoxChecked = delayBox.checked;
+        const toDelayBeforeSending = isToDelayBeforeSending();
         if (isDelayBoxChecked) {
             removeDelayListener();
-            log(`Delay time change to ${delayTimeInput.value}sec for url: ${url}`)
         }
-        [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value);
+        [addDelayListener, removeDelayListener] = createOnBeforeRequestListeners(url, delayTimeInput.value, toDelayBeforeSending);
         if(isDelayBoxChecked){
+            log(`Delay set ${delayTimeInput.value}sec for url: ${url}, and isToDelayBeforeSending = ${toDelayBeforeSending}`);
             addDelayListener();
         }
     }
-    delayTimeInput.addEventListener('click', e => e.target.select());
-    delayTimeInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
 
     let lastDelayTimeValue = delayTimeInput.value;
     delayTimeInput.addEventListener('blur', () => {
         if (lastDelayTimeValue !== delayTimeInput.value) {
             lastDelayTimeValue = delayTimeInput.value;
-            delayTimeInputHandler();
+            recreateDelayListener();
         }
     });
+
+    select.addEventListener("change", () => recreateDelayListener());
+    delayTimeInput.addEventListener('click', e => e.target.select());
+    delayTimeInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
 
     urlListElement.insertAdjacentElement('afterbegin', div);
 }
@@ -127,8 +138,10 @@ function singleUrlListener(url) {
 /*
 * @filterUrl need to match pattern https://developer.chrome.com/docs/extensions/mv3/match_patterns/
 * @delaySec, if delaySec < 0 to block request, delaySec = 0 fire without delay, delaySec > 0 to apply delaySec in sec
+* @isToDelayBeforeSending, default to be true, means delay delaySec time before sending the request to hit network,
+* if false(support only in Firefox), means it will immediately send request to network but after receive response data(if any), it delay delaySec before writing response data back to the front page engine.
 */
-function createOnBeforeRequestListeners(filterUrl, delaySec) {
+function createOnBeforeRequestListeners(filterUrl, delaySec, isToDelayBeforeSending= true) {
     const listenerPairId = "OnBeforeRequestListener_" + Date.now() + Math.random();
     const add = () => {
         browser.runtime.sendMessage({
@@ -137,7 +150,8 @@ function createOnBeforeRequestListeners(filterUrl, delaySec) {
             name: instanceName,
             listenerPairId,
             filterUrl,
-            delaySec
+            delaySec,
+            isToDelayBeforeSending
         });
     }
 
@@ -148,7 +162,8 @@ function createOnBeforeRequestListeners(filterUrl, delaySec) {
             name: instanceName,
             listenerPairId,
             filterUrl,
-            delaySec
+            delaySec,
+            isToDelayBeforeSending
         });
     }
 
