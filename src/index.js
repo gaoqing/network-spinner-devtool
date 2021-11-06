@@ -21,6 +21,7 @@ function addUrlListeners() {
     const urls = input.value && input.value.trim().split('\n')
         .map(url => url.replace(/^\s+|\s+$/g, ''))
         .filter(url => url.length > 0);
+
     urls.forEach(url => {
         const enrichedUrl = validateUrl(url);
         enrichedUrl && validUrls.add(enrichedUrl) || invalidUrls.add(url);
@@ -37,16 +38,17 @@ function addUrlListeners() {
     })
 
     clearAllWarnings();
-    input.value = '';
+    let msg = '';
     if (duplicatedUrls.size > 0) {
         showDuplicateUrlWarning(duplicatedUrls);
-        input.value += Array.from(duplicatedUrls).join("\n");
+        msg += Array.from(duplicatedUrls).join("\n");
+        msg += "\n";
     }
     if (invalidUrls.size > 0) {
         showInvalidUrlWarning(invalidUrls);
-        duplicatedUrls.size > 0 && (input.value += "\n");
-        input.value += Array.from(invalidUrls).join("\n");
+        msg += Array.from(invalidUrls).join("\n");
     }
+    input.value = msg;
 }
 
 function singleUrlListener(url) {
@@ -54,16 +56,17 @@ function singleUrlListener(url) {
     const div = item.querySelector('div');
     const urlSpan = item.querySelector('span');
     const deleteBtn = item.querySelector('button');
-    const select = item.querySelector('select');
+    const typeSelect = item.querySelector('select');
     const inputs = item.querySelectorAll('input');
     const [delayBox, delayTimeInput, blockBox] = inputs;
     urlSpan.textContent = url;
 
     if(isFirefox){
-        select.removeAttribute("disabled");
+        // enable typeSelect checkbox 'after'/'before' options for firefox, only support 'after' in firefox
+        typeSelect.removeAttribute("disabled");
     }
     const isToDelayBeforeSending = () => {
-        return select.value.toLowerCase() === 'before';
+        return typeSelect.value.toLowerCase() === 'before';
     }
 
     const [addBlockListener, removeBlockListener] = createOnBeforeRequestListeners(url, -1, isToDelayBeforeSending());
@@ -85,10 +88,12 @@ function singleUrlListener(url) {
             removeDelayListener();
             delayBox.checked = false;
             delayTimeInput.disabled = true;
+            typeSelect.setAttribute("disabled", 'true');
             log("Block set for url: " + url)
         } else {
             removeBlockListener();
             delayTimeInput.disabled = false;
+            isFirefox && typeSelect.removeAttribute("disabled");
             log("Un-block set for url: " + url)
         }
     });
@@ -100,6 +105,7 @@ function singleUrlListener(url) {
             removeBlockListener();
             blockBox.checked = false;
             delayTimeInput.disabled = false;
+            isFirefox && typeSelect.removeAttribute("disabled");
             log(`Delay set ${delayTimeInput.value}sec for url: ${url}, and isToDelayBeforeSending = ${isToDelayBeforeSending()}`)
         } else {
             removeDelayListener();
@@ -128,7 +134,7 @@ function singleUrlListener(url) {
         }
     });
 
-    select.addEventListener("change", () => recreateDelayListener());
+    typeSelect.addEventListener("change", () => recreateDelayListener());
     delayTimeInput.addEventListener('click', e => e.target.select());
     delayTimeInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
 

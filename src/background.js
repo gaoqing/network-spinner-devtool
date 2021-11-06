@@ -22,7 +22,7 @@ function getListenerCallback(listenerPairId, delaySec, isToDelayBeforeSending) {
     if (!listenerCallbackStore[listenerPairId]) {
         listenerCallbackStore[listenerPairId] = isFirefox ?
             firefoxListenerCallback(delaySec, isToDelayBeforeSending)
-            : chromeListenerCallback(delaySec, isToDelayBeforeSending)
+            : chromeListenerCallback(delaySec)
     }
     return listenerCallbackStore[listenerPairId];
 }
