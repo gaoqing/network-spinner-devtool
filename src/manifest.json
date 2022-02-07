@@ -1,11 +1,9 @@
 {
   "manifest_version": 2,
-  "author": "lsz",
-
-  "name": "network spinner",
-  "description": "An extension in browser devtools to introduce delay for network requests or completely block requests",
-  "version": "0.0.1",
-
+  "author": "Liang Shaozhan",
+  "name": "HTTP Request Blocker and Delayer",
+  "description": "This's a devtools extension to introduce delay or blocking for http requests, based on configuration of URL patterns and delay time",
+  "version": "1.0.1",
   "icons": {
     "16": "logo.png"
   },

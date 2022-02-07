@@ -2,7 +2,7 @@ const isFirefox = typeof InstallTrigger !== 'undefined';
 const browser = isFirefox && window.browser || window.chrome;
 
 browser.devtools.panels.create(
-    "NetworkSpinner",
+    "RequestBlocker/Delayer",
     "logo.png",
     "index.html"
 );

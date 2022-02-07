@@ -4,12 +4,12 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <meta name="theme-color" content="#000000"/>
-    <meta name="description" content="devtool page for delaying/blocking network requests"/>
+    <meta name="description" content="devtool page for delaying/blocking http requests"/>
     <template id="template-id">
         <div class="url-line">
             <input type="checkbox"/>
             <input type="text" value='5' class="delay-time-input"/>
-            <select disabled title="delay before sending request or after receiving response, 'after' option only support in firefox">
+            <select disabled title="'before' - introduce delay before sending request, 'after' - introduce delay after receiving response('after' only support in firefox).">
                 <option selected value="before" title="before sending request">before</option>
                 <option value="after" title="after receiving response">after</option>
             </select>
@@ -83,7 +83,7 @@
 <body>
 
 <div id="root" class="mb20">
-    <h3 class="m-header">Devtool for delaying/blocking network requests</h3>
+    <h3 class="m-header">Devtool for delaying/blocking http requests</h3>
     <div class="mb20">
         <textarea id="input" placeholder="separate each url pattern on a new line"></textarea>
         <br/>
